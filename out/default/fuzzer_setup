@@ -1,0 +1,9 @@
+# environment variables:
+AFL_CUSTOM_INFO_PROGRAM=/exercises/exercise1/build/simple_crash
+AFL_CUSTOM_INFO_PROGRAM_ARGV=
+AFL_CUSTOM_INFO_OUT=out/default
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_TRY_AFFINITY=1
+AFL_SKIP_CPUFREQ=1
+# command line:
+'/AFLplusplus/afl-fuzz' '-x' '/exercises/exercise1/allowlist.txt' '-i' '/exercises/exercise1/seeds/' '-o' 'out' '-m' 'none' '-d' '--' '/exercises/exercise1/build/simple_crash'
