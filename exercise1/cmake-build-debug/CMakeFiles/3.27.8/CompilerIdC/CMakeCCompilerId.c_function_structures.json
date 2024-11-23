@@ -1,0 +1,10 @@
+{
+    "main": {
+        "function_name": "main",
+        "calls": [
+            "main"
+        ],
+        "conditionals": [],
+        "loops": []
+    }
+}

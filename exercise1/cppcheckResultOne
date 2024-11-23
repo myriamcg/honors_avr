@@ -1,0 +1,15 @@
+[1msimple_crash.cpp:14:21: [31merror:[39m Array 'arr[5]' accessed at index 10, which is out of bounds. [arrayIndexOutOfBounds][0m
+    std::cout << arr[10] << std::endl; // Out-of-bounds access
+                    ^
+[1msimple_crash.cpp:6:1: [31merror:[39m Memory leak: ptr [memleak][0m
+}
+^
+[1msimple_crash.cpp:19:6: [31merror:[39m Null pointer dereference: ptr [nullPointer][0m
+    *ptr = 100;  // Dereferencing a null pointer
+     ^
+[1msimple_crash.cpp:18:16: [2mnote:[0m Assignment 'ptr=nullptr', assigned value is 0
+    int* ptr = nullptr;
+               ^
+[1msimple_crash.cpp:19:6: [2mnote:[0m Null pointer dereference
+    *ptr = 100;  // Dereferencing a null pointer
+     ^

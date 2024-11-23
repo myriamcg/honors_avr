@@ -1,0 +1,3 @@
+/exercises/exercise1/build/CMakeFiles/simple_crash.dir
+/exercises/exercise1/build/CMakeFiles/edit_cache.dir
+/exercises/exercise1/build/CMakeFiles/rebuild_cache.dir
