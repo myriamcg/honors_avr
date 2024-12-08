@@ -1,138 +1,122 @@
-# import llvmlite.binding as llvm
-# import networkx as nx
+# import re
 # from collections import defaultdict
 
-# # Initialize LLVM
-# llvm.initialize()
-# llvm.initialize_native_target()
-# llvm.initialize_native_asmprinter()
-
-# def parse_ll_file(file_path):
-#     # Parse the LLVM IR file
-#     with open(file_path, 'r') as f:
-#         llvm_ir = f.read()
-
-#     # Parse the LLVM IR module
-#     llvm_module = llvm.parse_assembly(llvm_ir)
-#     llvm_module.verify()
-#     return llvm_module
-# def build_cfg(llvm_module):
-#     # Create a directed graph for the CFG
-#     cfg = nx.DiGraph()
-
-#     # Iterate through functions in the module
-#     for func in llvm_module.functions:
-#         if func.is_declaration:  # Skip declarations
-#             continue
-
-#         # Add function as a node
-#         cfg.add_node(func.name, type="function")
-
-#         # Process each basic block in the function
-#         for block in func.blocks:
-#             block_name = f"{func.name}:{block.name}"
-#             cfg.add_node(block_name, type="basic_block")
-
-#             # Convert the instructions iterator to a list
-#             instructions = list(block.instructions)
-
-#             # Analyze the terminator instruction to determine successors
-#             if instructions:  # Ensure the block has instructions
-#                 terminator = instructions[-1]  # Last instruction in the block
-#                 if terminator.opcode == "br":  # Branch instruction
-#                     for operand in terminator.operands:
-#                         # Check if the operand is a basic block reference
-#                         if operand.name:  # Basic block names are non-empty
-#                             successor_name = f"{func.name}:{operand.name}"
-#                             cfg.add_edge(block_name, successor_name)
-#                 elif terminator.opcode == "switch":  # Switch instruction
-#                     for case in terminator.operands[1:]:  # Skip the condition operand
-#                         if case.name:  # Basic block names are non-empty
-#                             successor_name = f"{func.name}:{case.name}"
-#                             cfg.add_edge(block_name, successor_name)
-
-#     return cfg
-
-# def convert_to_tree(cfg, root):
-#     # Convert graph to tree (basic example)
-#     tree = defaultdict(list)
-
-#     def dfs(node, parent=None):
-#         for neighbor in cfg.successors(node):
-#             tree[node].append(neighbor)
-#             dfs(neighbor, node)
-
-#     dfs(root)
-#     return tree
+# # Read the LLVM IR file
+# with open("prog.ll", "r") as file:
+#     content = file.read()
 
 
+# function_definitions = re.findall(r'define.*?@(\w+)\(.*?\).*?\{(.*?)\}', content, re.S)
 
-# # Main
-# if __name__ == "__main__":
-#     # Path to your .ll file
-#     ll_file = "prog.ll"
+# function_analysis = defaultdict(lambda: {"branches": [], "switches": [], "calls": []})
 
-#     # Parse LLVM IR and build CFG
-#     llvm_module = parse_ll_file(ll_file)
-#     cfg = build_cfg(llvm_module)
-#     print("si si")
-#     print(cfg.nodes())
+# for func_name, func_body in function_definitions:
+#     branches = re.findall(r'br\s+i1\s+(\%\w+)', func_body)
+    
+#     # Find all switch statements
+#     switches = re.findall(r'switch\s+\w+\s+(\%\w+),', func_body)
+    
+#     # Find all function calls
+#     # calls = re.findall(r'call\s+\w+.*?@(\w+)\(', func_body)
+#     calls = re.findall(r'(?:call|invoke)\s+[^{@]*@(\w+)\(', func_body)
+    
+#     # Store the data
+#     function_analysis[func_name]["branches"] = branches
+#     function_analysis[func_name]["switches"] = switches
+#     function_analysis[func_name]["calls"] = calls
 
-#     # Assuming "main" function is the entry point
-#     root = "main"
+# # Print the results
+# for func, analysis in function_analysis.items():
+#     print(f"Function '{func}':")
+    
+#     branches = analysis["branches"]
+#     if branches:
+#         print(f"  Conditional branches: {', '.join(branches)}")
+#     else:
+#         print("  No conditional branches found.")
+    
+#     switches = analysis["switches"]
+#     if switches:
+#         print(f"  Switch conditions: {', '.join(switches)}")
+#     else:
+#         print("  No switch conditions found.")
+    
+#     calls = analysis["calls"]
+#     if calls:
+#         print(f"  Function calls: {', '.join(calls)}")
+#     else:
+#         print("  No function calls found.")
 
-#     # Convert to tree structure
-#     cfg_tree = convert_to_tree(cfg, root)
 
-#     # Print the tree structure
-#     print(cfg_tree)
-
+import os
+from llvmlite import binding as llvm
 import re
 from collections import defaultdict
 
-# Read the LLVM IR file
-with open("prog.ll", "r") as file:
-    content = file.read()
+llvm.initialize()
+llvm.initialize_native_target()
+llvm.initialize_native_asmprinter()
+
+llvm_ir_file = "prog.ll" 
+with open(llvm_ir_file, "r") as f:
+    llvm_ir = f.read()
+
+module = llvm.parse_assembly(llvm_ir)
+module.verify()
+
+function_name = "main"
+fn = module.get_function(function_name)
+
+dot = llvm.get_function_cfg(fn)
+
+dot_file = "function_cfg.dot"
+with open(dot_file, "w") as f:
+    f.write(dot)
+
+png_file = "function_cfg.png"
+os.system(f"dot -Tpng {dot_file} -o {png_file}")
+
+print(f"Control Flow Graph (CFG) has been saved as {png_file}.")
 
 
-function_definitions = re.findall(r'define.*?@(\w+)\(.*?\).*?\{(.*?)\}', content, re.S)
 
-function_analysis = defaultdict(lambda: {"branches": [], "switches": [], "calls": []})
+def parse_dot_file_with_llvm(dot_file_path):
+  
+    node_connections = defaultdict(list)
+    node_labels = {}
 
-for func_name, func_body in function_definitions:
-    branches = re.findall(r'br\s+i1\s+(\%\w+)', func_body)
-    
-    # Find all switch statements
-    switches = re.findall(r'switch\s+\w+\s+(\%\w+),', func_body)
-    
-    # Find all function calls
-    # calls = re.findall(r'call\s+\w+.*?@(\w+)\(', func_body)
-    calls = re.findall(r'(?:call|invoke)\s+[^{@]*@(\w+)\(', func_body)
-    
-    # Store the data
-    function_analysis[func_name]["branches"] = branches
-    function_analysis[func_name]["switches"] = switches
-    function_analysis[func_name]["calls"] = calls
+    with open(dot_file_path, 'r') as file:
+        content = file.read()
 
-# Print the results
-for func, analysis in function_analysis.items():
-    print(f"Function '{func}':")
-    
-    branches = analysis["branches"]
-    if branches:
-        print(f"  Conditional branches: {', '.join(branches)}")
-    else:
-        print("  No conditional branches found.")
-    
-    switches = analysis["switches"]
-    if switches:
-        print(f"  Switch conditions: {', '.join(switches)}")
-    else:
-        print("  No switch conditions found.")
-    
-    calls = analysis["calls"]
-    if calls:
-        print(f"  Function calls: {', '.join(calls)}")
-    else:
-        print("  No function calls found.")
+    edges = re.findall(r'(Node0x\w+):?\w* -> (Node0x\w+);', content)
+    nodes = re.findall(r'(Node0x\w+) \[.*?label="{(.*?)}"\];', content, re.DOTALL)
 
+    for src, dest in edges:
+        node_connections[src].append(dest)
+    for node, label in nodes:
+        # Clean up the label by removing excessive whitespace
+        cleaned_label = re.sub(r'\\l', '\n', label).strip()
+        cleaned_label = label
+        node_labels[node] = cleaned_label
+
+    llvm_graph = {}
+    for node, children in node_connections.items():
+        llvm_code = node_labels.get(node, "")
+        children_codes = [node_labels.get(child, "") for child in children]
+        llvm_graph[llvm_code] = children_codes
+    return llvm_graph, node_labels
+
+dot_file_path = "function_cfg.dot"
+llvm_graph, node_labels = parse_dot_file_with_llvm(dot_file_path)
+print("node labels are")
+print(node_labels)
+for llvm_code, children in llvm_graph.items():
+    print("LLVM Code Block:")
+    print(llvm_code)
+    print("Children LLVM Blocks:")
+    for child_code in children:
+        print(child_code)
+
+print("number of nodes is ")
+print(len(node_labels))
+    
