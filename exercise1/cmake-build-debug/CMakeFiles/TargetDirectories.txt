@@ -1,3 +1,0 @@
-C:/Users/myria/OneDrive/Desktop/honors/Fuzzing-Module/exercise1/cmake-build-debug/CMakeFiles/simple_crash.dir
-C:/Users/myria/OneDrive/Desktop/honors/Fuzzing-Module/exercise1/cmake-build-debug/CMakeFiles/edit_cache.dir
-C:/Users/myria/OneDrive/Desktop/honors/Fuzzing-Module/exercise1/cmake-build-debug/CMakeFiles/rebuild_cache.dir
