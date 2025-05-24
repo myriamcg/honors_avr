@@ -2197,6 +2197,13 @@ havoc_stage:
       }
 
     retry_havoc_step: {
+//    print statement is extra code for debugging purposes
+    printf("Bitmap contents for mutation:%s\n", out_buf);
+  for (size_t i = 0; i < afl->fsrv.map_size; i++) {
+    printf("%02x ", afl->virgin_bits[i]);
+    if ((i + 1) % 16 == 0) { printf("\n"); }
+  }
+
 
       u32 r = rand_below(afl, rand_max), item;
 

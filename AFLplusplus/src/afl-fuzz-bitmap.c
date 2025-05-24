@@ -951,6 +951,9 @@ may_save_fault:
          cases. */
 
       ++afl->total_crashes;
+      //    print statement is extra code for debugging purposes
+
+
 
       if (afl->saved_crashes >= KEEP_UNIQUE_CRASH) { return keeping; }
 
