@@ -505,6 +505,13 @@ bool ModuleSanitizerCoverageAFL::instrumentModule(
                getenv("AFL_USE_TSAN") ? ", TSAN" : "",
                getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
                getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
+      // TODO: uncomment the lines below. Recompile afl++ and then the binary 
+      // you want to execute the fuzzer on
+      // it now prints all instrumented functions
+      // printf("printing something\n");
+      // for (auto &F: M)
+      //     printf("SanitizerCoveragePCGUARD: instrumenting %s in %s\n",
+      //       F.getName().str().c_str(), F.getParent()->getName().str().c_str());
       OKF("Instrumented %u locations with no collisions (%s mode) of which are "
           "%u handled and %u unhandled selects.",
           instr, modeline, selects, unhandled);
@@ -1220,6 +1227,8 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
                                                        bool        IsLeafFunc) {
 
   BasicBlock::iterator IP = BB.getFirstInsertionPt();
+  // uncoment this to get the IDs of the blocks
+  // printf("AFL++ Instrumented Block: Function: %s, Block ID: %zu\n", F.getName().str().c_str(), Idx);
   bool                 IsEntryBB = &BB == &F.getEntryBlock();
   DebugLoc             EntryLoc;
 
@@ -1265,6 +1274,34 @@ void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
         IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
                       ConstantInt::get(IntptrTy, Idx * 4)),
         Int32PtrTy);
+
+    // uncomment this to get the afl block id as int and hex. Something is odd since the ids are negative
+    // printf("AFL++ Instrumented Block: Function: %s\nBlock ID: %zu\nAFL Block ID: %d\nAFL Block ID in hex: %x\n\n\n",
+    //       F.getName().str().c_str(), Idx, CurLoc, CurLoc);
+
+    // The version above prints the results to the console. By adding this, IDs will be also put in the binaries:
+    // Declare printf function
+    // FunctionCallee PrintfFunc = F.getParent()->getOrInsertFunction(
+    //     "printf", FunctionType::get(IRB.getInt32Ty(), PointerType::getInt8Ty(F.getContext()), true));
+    
+    // // Create a global format string for printing
+    // Value *PrintfFormatStrInt = IRB.CreateGlobalStringPtr("Block ID int: %d\n");
+    // Value *PrintfFormatStrHex = IRB.CreateGlobalStringPtr("Block ID hex: %x\n");
+    
+    // // Convert CurLoc to 64-bit integer type for printf (for int)
+    // Value *CurLocInt = IRB.CreateSExt(CurLoc, IRB.getInt64Ty());
+    
+    // // Insert printf
+    // IRB.CreateCall(PrintfFunc, {PrintfFormatStrInt, CurLocInt});
+    // IRB.CreateCall(PrintfFunc, {PrintfFormatStrHex, CurLoc});
+
+
+
+    // uncomment this to print the function name. Something might be odd, didn't check properly
+    // Value *PrintfFormatStrFunctionName = IRB.CreateGlobalStringPtr("SanitizerCoveragePCGUARD: instrumenting %s in %s\n");
+    //   Value *FunctionNameString = IRB.CreateGlobalStringPtr(F.getName().str().c_str());
+    //       Value *FunctionNameParentString = IRB.CreateGlobalStringPtr(F.getParent()->getName().str().c_str());
+    //   IRB.CreateCall(PrintfFunc, {PrintfFormatStrFunctionName, FunctionNameString, FunctionNameparentString});
 
     LoadInst *CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);
     ModuleSanitizerCoverageAFL::SetNoSanitizeMetadata(CurLoc);
