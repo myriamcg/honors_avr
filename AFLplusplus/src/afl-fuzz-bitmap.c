@@ -951,7 +951,14 @@ may_save_fault:
          cases. */
 
       ++afl->total_crashes;
-      //    print statement is extra code for debugging purposes
+  // TODO: uncomment the print statements for debugging purposes
+//      printf("mutation that crashes is:%s\n", mem);
+//   printf("bitmap is");
+//   for (size_t i = 0; i < afl->fsrv.map_size; i++) {
+//       printf("%02x ", afl->virgin_bits[i]);
+//       if ((i + 1) % 16 == 0) { printf("\n"); }
+//   }
+
 
 
 

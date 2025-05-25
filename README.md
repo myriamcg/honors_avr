@@ -1,335 +1,852 @@
-# Table of Contents
+# Honors Final Report 
+**Authors:** Darius Floroiu, Myriam Guranda
 
-## Phase 0: What is Fuzzing?
+**Supervisor**: Professor Sicco Verwer
 
-0.1 [Introduction](https://github.com/alex-maleno/Fuzzing-Module#introduction)
-
-0.2 [What Is Fuzzing?](https://github.com/alex-maleno/Fuzzing-Module#what-is-fuzzing)
-
-0.3 [Why Fuzz?](https://github.com/alex-maleno/Fuzzing-Module#why-fuzz)
-
-0.4 [Terms Used Throughout the Module](https://github.com/alex-maleno/Fuzzing-Module#terms-used-throughout-the-module)
-
-## Phase 1: Setup and Software
-
-1.1 [Required Software Tools](https://github.com/alex-maleno/Fuzzing-Module#Required-Software-Tools)
-
-1.2 [How to Clone Target Code](https://github.com/alex-maleno/Fuzzing-Module#How-to-Clone-Target-code)
-
-1.3 [How to Download Docker](https://github.com/alex-maleno/Fuzzing-Module#how-to-download-docker)
-
-1.4 [How to Clone AFLplusplus](https://github.com/alex-maleno/Fuzzing-Module#how-to-clone-aflplusplus)
-
-1.5 [How to Get Kali Linux](https://github.com/alex-maleno/Fuzzing-Module#How-to-Get-Kali-Linux-(Windows-Only))
-
-1.6 [How to Download VirtualBox](https://github.com/alex-maleno/Fuzzing-Module#how-to-download-virtualbox)
-
-1.7 [How to Download VMware](https://github.com/alex-maleno/Fuzzing-Module#how-to-download-vmware)
-
-1.8 [How to Download SourceTrail](https://github.com/alex-maleno/Fuzzing-Module#How-To-Download-Sourcetrail)
-
-## Phase 2: The first Fuzz
-
-2.1 [How to Create an AFL++ Docker Container](https://github.com/alex-maleno/Fuzzing-Module#how-to-create-an-afl-docker-container)
-
-2.2 [How to Create Target Docker Container](https://github.com/alex-maleno/Fuzzing-Module#how-to-create-target-docker-container)
-
-2.3 [How to Run AFL++ on Exercise 1](https://github.com/alex-maleno/Fuzzing-Module#how-to-run-afl-on-exercise-1)
-
-2.4 [Analyzing the Crashes](https://github.com/alex-maleno/Fuzzing-Module#analyzing-the-crashes)
-
-2.5 [Challenge: Fuzz Exercise 2](https://github.com/alex-maleno/Fuzzing-Module#challenge-fuzz-exercise-2)
+[Google Doc Version of Report](https://docs.google.com/document/d/1G8DFGDWeCFvvJaVB0-TxvMYBuCKBEcHEqYRPOG5iAzY/edit?usp=sharing)
 
 
-## Phase 3: Finding Potential Vulnerabilities
-
-3.1 [How to Use Sourcetrail](https://github.com/alex-maleno/Fuzzing-Module#how-To-Use-Sourcetrail)
-
-
-## Phase 4: Fuzzing a Target with a slice
-
-4.1 [How to Create a Slice](https://github.com/alex-maleno/Fuzzing-Module#How-To-Create-a-Slice)
-
-4.2 [How to Create a Slice for Exercise 3](https://github.com/alex-maleno/Fuzzing-Module#how-to-create-a-slice-for-exercise-3)
-
-4.3 [Fuzzing Exercise 3](https://github.com/alex-maleno/Fuzzing-Module#fuzzing-exercise-3)
-
-4.4 [Solution: How to Fuzz Exercise 3](https://github.com/alex-maleno/Fuzzing-Module#solution-how-to-fuzz-exercise-3)
-
-4.5 [Conclusion](https://github.com/alex-maleno/Fuzzing-Module#conclusion)
----
-# Fuzzing-Module
-
-# Phase 0: What is Fuzzing
-
-Estimated Time: 2 minutes
+## Abstract
+This report presents a tutorial on fuzzing and AFL++ and our two-year honors research on improving its effectiveness. In the first year, we identified AFL++’s struggles with string-based inputs and used Cppcheck to detect vulnerable functions, exploring control flow analysis to guide fuzzing. In the second year, we focused on runtime analysis, implementing dynamic control flow graph (CFG) construction, and examining AFL++’s bitmap mechanism. By modifying LLVM-instrumented binaries to log block node IDs, we gained insights into coverage tracking. Our findings set up the grounds for enhancing fuzzing precision and execution flow analysis, addressing key AFL++ limitations.
 
 ## Introduction
+Fuzz testing is a key technique for discovering software vulnerabilities, with AFL++ being one of the most widely used tools. However, AFL++ has some limitations, such as the lack of native targeted fuzzing,  or poorly-documented flags. 
+This paper provides a tutorial on AFL++ and explores techniques to enhance its effectiveness. We discuss its challenges in fuzzing string-based inputs, the role of static analysis in guiding fuzzing, and methods for improving runtime execution tracking. Additionally, we examine AFL++’s bitmap mechanism and control flow graph (CFG) construction to better understand its coverage feedback. Our findings aim to help users maximize AFL++’s potential and improve fuzzing precision.
+To better understand fuzzing and different fuzzing techniques, we recommend reading the first chapters of [The Fuzzing Book – Fuzzer](https://www.fuzzingbook.org/html/Fuzzer.html).
 
-This repository contains a README which explains the concept of fuzzing and why one would want to fuzz. The README goes on to teach anyone familiar with Computer Science how they can start fuzzing their own projects using the three examples ("exercise1", etc.) in the repository. We have designed this module to be completed on a Mac - Windows users can still complete the module but will need to use the virtual machines.
+## AFL++ Introduction
+AFL++ is an improved version of the AFL (American Fuzzy Lop) fuzzer, built for finding bugs and security vulnerabilities in software. It works by feeding programs with random inputs and using feedback from execution to generate new test cases that explore different paths in the code. Compared to the original AFL, AFL++ adds better mutation strategies, faster execution modes, and more flexible instrumentation options. It’s widely used in security research and software testing to uncover crashes, memory issues, and unexpected behavior. Its goal is to automate and speed up the process of finding flaws before attackers do. ([Fuzzing Approach](https://aflplus.plus/docs/afl-fuzz_approach/#:~:text=AFL%2B%2B%20is%20a%20brute,changes%20to%20program%20control%20flow.)) 
 
-Quick note: Fuzzing is an intermediate level topic. Although we include basic instructions, like how to install the tools needed to fuzz a target (installing Docker, using Sourcetrail, etc.), to be successful while fuzzing requires some experience. **Knowing how to build different projects is essential to fuzz a target, and that is not something that is covered in this module.**
+ AFL is a gray-box fuzzer, meaning it expects instrumentation to measure code coverage to have been injected into the target program at compile time and uses the coverage metric to direct the generation of new inputs. ([Wikipedia page on AFL](https://en.wikipedia.org/wiki/American_Fuzzy_Lop_(software)#:~:text=As%20described%20above%2C%20AFL%20is,many%20subsequent%20gray%2Dbox%20fuzzers. ))
 
-## What Is Fuzzing?
+## Targeted Fuzzing
+Instead of randomly exploring the program's entire input space, targeted fuzzing is a software testing technique that focuses on creating inputs that are specifically made to exercise specific areas or behaviors within a program. By efficiently reaching and testing predefined target locations in the code, this method seeks to more effectively find potential bugs or vulnerabilities, as described by Wüstholz and Christakis in their paper "Targeted greybox fuzzing with static lookahead analysis"([Wüstholz and Christakis, 2020](https://doi.org/10.1145/3372297.3423352)).
 
-From [Wikipedia](https://en.wikipedia.org/wiki/Fuzzing), fuzzing is automated input testing for a codebase or executable. While fuzzing, invalid or unexpected (sometimes random) data is provided to an executable in hopes of finding some undefined behavior, or vulnerability. For more information about what fuzzing is and how it can be beneficial, you can look at [Google's Fuzzing repo](https://github.com/google/fuzzing).
+Targeted fuzzing entails employing a variety of techniques to direct the fuzzing process toward these particular code regions. One popular approach is to use static analysis techniques, which examine the program's structure without running it and find the routes that lead to the desired destinations. The fuzzer uses these paths to determine how to change inputs in order to direct execution.
 
-## Why Fuzz?
+While AFL++ does not natively support targeted fuzzing, we explored foundational steps toward enabling it by identifying vulnerable functions via static analysis with Cppcheck,  attempting to configure allowlist-based instrumentation using LLVM or modifying the instrumentation code. These methods, discussed in the next sections, represent early progress toward making AFL++ more focused and directed in its fuzzing process.
 
-Fuzzing is used to find vulnerabilities in software. You can fuzz your own code or open-source projects to find and patch edge cases of bugs or for other academic purposes. Again, a more detailed description of why one would choose to fuzz can be found in [Google's Fuzzing repo](https://github.com/google/fuzzing).
+## How to Use AFL++
 
-## Terms Used Throughout the Module
+A helpful guide to run AFL++  we used was https://github.com/alex-maleno/Fuzzing-Module/tree/main, especially Phases 1 and 2, which describe the Setup and how to fuzz a program. 
+In summary, these are the steps that should be followed, if you decided using Docker Container:
 
-- **Container**: An isolated environment on a computer that allows code to run freely without interacting with the rest of your computer or other hardware. You can think of this like a Virtual Machine which only uses a command line interface.
-- **Wrapper**: A program that allows a fuzzer to interact with the slice being fuzzed. It is the code which glues together the fuzzer and the target code.
-- **Mutations**: New inputs which the fuzzer generates by modifying previous inputs with the goal of reaching more areas of the target code.
-- **Slice**: A section of a codebase that is isolated from the rest of it. Isolation of slices makes finding vulnerabilities and bugs easier and more efficient.
+#### _**First run**_: 
 
-# Phase 1: Setup and Software
+1. docker pull aflplusplus/aflplusplus
 
-Estimated Time: 15 minutes
+2. docker images
 
-## Required Software Tools
+3. Run docker container:
 
-We use a number of tools throughout this learning module (with download links as they come up), so we will outline them here.
+    a . docker run -it <image id>
 
-- **Docker**: We will create a container using Docker to create an isolated environment for fuzzing the target code.
-- **AFL++**: AFL++ is the fuzzer we will use in this learning module. AFL++ will attach to the target code using a wrapper, and it will handle all of the inputs and mutations. When running code with AFL++, there is a nice output that updates automatically to show how long the code has been running and some information about the number of crashes/hangs that have been detected.
-- **Kali Linux**: A virtual machine that we used during our testing process for Windows users. Any other virtual machine will work for our purposes. This is only necessary for windows users.
-- **Sourcetrail**: A tool that can be used to get familiar with a codebase. There are two main windows within Sourcetrail - the code being looked at and a graphical interpretation of it. By clicking on functions within the code, you can see where those functions are called in other spots throughout the codebase. We found Sourcetrail to be quite useful for exploring large projects because we could more easily determine how various parts of the codebases were connected.
+   b. make (optional - not needed every time)
 
-## How to Clone Target code
+   c. close terminal
 
- - To clone the target code for this module, simply use either the https or ssh clone process for this repository.
- - Clone the target code into wherever you want on your os.
+   d. docker ps
 
-## How to Download Docker
+   e. docker commit <CONTAINER ID> (printed from previous step)
 
- - To download Docker, go to this link on the [Docker website](https://www.docker.com/products/docker-desktop/) and choose the correct operating system and chip. The website should automatically propose the correct software for your system, but download links for other versions will also be available on the page.
- - After the download is complete, run through the steps in the setup and open the desktop app on your computer.
- - Disclaimer; this may take up a lot of space on your computer
 
-## How to Clone AFLplusplus
+   **NB**:  From now on, to not repeat these steps multiple times, you can just use the same Commit sha every time you run the tool, but, once you close the container, your changes will not remain saved! For better usage, you can follow this page to make the connection between your IDE and Docker. 
+   
 
- - The next step is to go to the AFLplusplus [Github Repo](https://github.com/AFLplusplus/AFLplusplus) and hit the green
- "Code" button, and copy the HTTPS link to clone the repository.
-- In your terminal - Terminal for Mac and PowerShell for Windows - write
-`git clone https://github.com/AFLplusplus/AFLplusplus` to clone AFLpluslplus onto your computer.
+4. Start container:
+   docker run --rm -it -v "path to code (for Fuzzing-Module in our case - in quotation marks)":/exercises <first 8-12 digits of the sha resulted by command 3.e.> (**for example, docker run --rm -it -v "C:\Users\dariu\Desktop\Fuzzing-Module":/exercises <sha>**)
 
-## How to Get Kali Linux (Windows only)
 
- - For our purposes, we chose Kali Linux as our virtual machine, but any other virtual machine should suffice. We used a VM to run Sourcetrail because, while running Sourcetrail on Windows, Sourcetrail was routinely unable to locate the correct path for the code.
- - To do this properly on a Windows machine, simply download your VM of choice - we used VirtualBox or VMWare with a Kali Linux image, all which can be found on the [Kali website](https://www.kali.org/get-kali/#kali-bare-metal) with the VM download on the page just below.
-    - To download the correct Kali image, make sure you are matching your computer architecture with the image you download. Under the Bare Metal header, you can choose 64 or 32-bit images. The recommended image to download is the "Installer" image, which is the first one you see and is 2.8GB in size. You can read more about which image to download [here](https://www.kali.org/docs/introduction/what-image-to-download/).
-    - After downloading the correct image, scroll down on the page under the "Virtual Machines" header, and choose either the VMWare or the VirtualBox download (make sure to choose either 64 or 32 bit here as well).
- - After this is done - run through the setup of the VM and open it up, and run the image. After you run, you should get a login screen - the default credentials to enter are a username and password of `kali`. Then, follow the next set of steps to download Sourcetrail in your VM.
+5.   Start actual fuzzing:
 
-## Virtual Machines (Windows only)
+   **a**. cd .. (you are now in /AFLplusplus)
 
-Through our experience on this project, we would recommend using VirtualBox rather than VMware.
+   **b**. cd exercises (common exercises folder)
 
-#### How to Download VirtualBox
+   **c**. cd exercise1 (or any exercise number)
 
-To open your image of Kali Linux on VirtualBox, all you have to do is follow the steps on [this website](https://itsfoss.com/install-kali-linux-virtualbox/).
-The image of Kali Linux described earlier in the module is one of the "ready-to-use" virtual images, which means all of the correct
-settings should import as well when you import the image to VirtualBox. Make sure you are using the file with the `.ova` extension.
-After you import the image, you can hit "Import" and then after a few minutes you should see the image in the sidebar of the
-VirtualBox application. Select it, and then press the green "Start" arrow to start up the VM.
+   **d**. mkdir build (create build directory)
 
-Once you are logged in, you should see a Desktop with the Kali logo in the background. In the top left corner, there is an
-icon resembling a terminal. Open this, and follow the download steps for Sourcetrail as well as doing `git clone` for the chosen
-target(s). After the target(s) are cloned in the VM, you can build them and move forward with the steps outlined in the [Indexing
-in Sourcetrail](https://github.com/alex-maleno/Fuzzing-Module/blob/main/README.md#indexing-and-analysis-in-sourcetrail) section
+   **e**. cd build (go to build directory)
 
-#### How to Download VMWare
+   **f**. CC=/AFLplusplus/afl-cc CXX=/AFLplusplus/afl-c++ cmake .. (create make file)  OR CC=/AFLplusplus/afl-clang-fast CXX=/AFLplusplus/afl-clang-fast++ cmake ..     
+   
+   **g**. make (to create the executable)
 
-VMware is a free-to-use, at the personal level, virtual machine software for many potential operating systems. The VMware code can be downloaded for free [here](https://www.vmware.com/products/workstation-player/workstation-player-evaluation.html). Once VMWare is installed, it may be used with any potential linux OS which provides a VMWare configuration. In the context of this project, we decided to use Kali, however, any linux version would work insofar as there exists a VMware file for it. Once the virtual machine software has finished installing, one can simply open the Kali, or any other, VM file within the program to run it.
+   **h**. cd .. (now in exercise1 directory)
 
-## How to Download Sourcetrail
+   **i**. mkdir seeds (create seeds directory)
 
-When going through the process of building our targets on Windows, we had compatibility issues with Sourcetrail that prevented
-the files in our targets from being indexed properly by Sourcetrail. We remedied the issue by using a virtual machine.
-As mentioned previously, we used Kali Linux with VMWare/VirtualBox, however any VM should work as a solution. If you are not
-familiar with VMs, we will walk through using Kali Linux with VMWare and VirtualBox in this guide.
+   **j**. cd seeds (go to seeds directory)
 
- - To download Sourcetrail, which we can use to walk through and analyze code, go to the
- [Sourcetrail github](https://github.com/CoatiSoftware/Sourcetrail/releases) and download the release that is compatible
- with your operating system. Then run through the setup on your computer and open up the app.
+   **k**. for i in {0..4}; do dd if=/dev/urandom of=seed_$i bs=64 count=10; done (or create seed files manually)
+  
+**l**.  cd .. (to be in the exercise1 directory, not mandatory)
+   
+**m**. /AFLplusplus/afl-fuzz -i [full path to your seeds directory] -o out -m none -d -- [full path to the executable] (run the fuzzer on the executable) (e.g. /AFLplusplus/afl-fuzz -i seeds/ -o out -m none -d build/simple_crash)
 
-# Phase 2: The First Fuzz
+**Tips to avoid redundancy or issues:** 
 
-Estimated Time: 45 Minutes
+ 1) If you do not modify the code you want to run afl on, and you already created your executable ( in this case found in exercises/exercise1/build/simple_crash), you don’t need to do steps f-l every time you run the fuzzer. But, if you want to modify the compiler used (in step f), you wil need to run f, g. 
+2) If you change either of the codes ( afl or the target code), you need to run make on either the afl directory ( if you changed the afl code) or in the target code directory( if you changed that one), so that the binary gets rebuilt ( sometimes, even make clean and then make).
 
-## How to create an AFL++ Docker Container
+Running the above should give you something similar to this. The tool will run until you end it with Ctrl+C.
 
-This is completed in the main OS terminal:
+![output_afl.png](output_afl.png)
+Figure 1: Example of AFL++ output
 
- - First, open the Docker desktop app on your computer, otherwise the next step will throw an error.
- - In your terminal, run the following command `docker pull aflplusplus/aflplusplus`
- - After this command has run, you should be able to open the Docker app and see the AFL++ container under the Container/Apps tab. Next to the container, it should say `aflplusplus/aflplusplus` in blue.
-    - If you do not see a new Container, go to the Images tab (also on the left) and find the most recent aflplusplus/aflplusplus image. Hover over it, click run on the far right, and then create a new container. Once you have created the container, return to the Container / Apps tab.
- - Hover over that container, and click the play button to start the container (if there is a stop button instead of a play button, then the container is already running).
- - Click on the CLI button, which has ">_" in a circle. This will open a new command line window that is already within your AFL++ docker container.
+Learning more about what these outputs mean can be done [here](https://afl-1.readthedocs.io/en/latest/user_guide.html) but they will also be briefly discussed in the next section. 
 
-The following step is completed in the Docker CLI terminal:
+More tutorials can be found at https://aflplus.plus/docs/tutorials/. 
 
- - You should be in the `AFLplusplus` directory (you can confirm this with `pwd`). Once there, **`make`** the AFL++ executables. This will take several minutes. Once it is done `make`ing, you can close the CLI.
 
+## Workflow -Main Idea
+Here are some helpful links for understanding the main idea of how afl++ works:
+https://github.com/AFLplusplus/AFLplusplus/blob/stable/src/README.md 
+https://blog.ritsec.club/posts/afl-under-hood/
 
-## How to create Target Docker Container
 
-This is completed in the main OS terminal:
+The main entry point is in the afl-fuzz.c. 
 
-1. Start the docker container for AFL++ using the Docker app on your desktop
-2. Within the command line, type: `docker ps`
-    - This will output the running docker containers on your machine at the moment. Copy the `CONTAINER ID` for the running AFL++ container
-3. Next, with your copied container ID, type: `docker commit [container id]`
-    - This will output a SHA256 hash of the committed container. Copy the first 7-10 characters of the commit hash.
-4. To start the AFL++ container with the target code, first navigate to the top directory of your clone of this github repository. Then type: `docker run --rm -it -v $(pwd):/[name of the directory you are adding to the container] [the commit hash that you copied in the previous step]`
-    - For example, the complete command looks something like the following for one of the authors of this repository: `docker run --rm -it -v "/Users/george/Desktop/CS Capstone/capstone/medium":"/Users/george/Desktop/CS Capstone/capstone/medium" f9a71912b4`
-    - If you don't want to navigate to the directory of the code you want to fuzz, you can replace $(pwd) with the *full path to the directory you want to fuzz, starting at your home directory*
-    - If the terminal prints the following error: _docker: `invalid reference format: repository name must be lowercase`, add "quotation marks" around the `$(pwd):/\[directory\]`
-        - This error arises when directory names contain space characters
-    - If you are on a Windows machine (and your directory names do not have space characters), you may have to use the following syntax when running this command, since your system recognizes a different filepath format: `docker run --rm -it -v C:\Users\george\Desktop\Capstone\capstone\medium:/Users/george/Desktop/Capstone/capstone/medium f9a71912b4`
+![afl_fuzz.c.png](afl_fuzz.c.png)
+Here we also have the calls to the fuzz_one(afl) function, which executes one mutation, using as parameter a pointer to the current afl state:
+![afl_fuzz_one.png](afl_fuzz_one.png)
 
+The main fuzzing procedure keeps mutating until one fuzz is skipped. Then, if no new coverage is found for some significant time, we switch to exploitation strategy - using the test cases we already have created:
+![exploration_strategy.png](exploration_strategy.png)
 
-## How to Run AFL++ on Exercise 1
+The generation of new mutants happens in the afl-fuzz-one.c file. First, a random number is generated, which corresponds to a mutation. Then, using a switch statement, the mutation which corresponds to this number is applied to the buffer. The number is generated on line 2195, and the mutation happens between lines 2197 and 3272:
 
-This is completed in the target container Docker CLI:
+![mut_bit_flip.png](mut_bit_flip.png)
 
-1. After starting the docker container, you should be within the `/AFLplusplus` directory. Navigate to the folder of the code you want to fuzz. You will need to go up a directory from `/AFLplusplus` (`cd ..`), and then `cd` into [name of the directory you are adding to the container] from step 4 of "Creating a Container to Fuzz Code".
-2. Create a build directory (standard practice to name it build)
-    - `mkdir build`
-3. Change directory into build
-    - `cd build`
-4. Add AFL++ tooling to the compiler for your executable:
-    - `CC=/AFLplusplus/afl-clang-fast CXX=/AFLplusplus/afl-clang-fast++ cmake ..`
-    - Informational Note: `afl-clang-fast/++` is just one example of compilers you can use with AFL++ - different compilers have different advantages. You can use any of the compilers within the `/AFLplusplus` directory, and the `CXX` variable name is always the same as the `CC` variable, with `++` appended to the end. You can read more about the different compilers and their advantages within the [AFL++ docs](https://github.com/AFLplusplus/AFLplusplus/tree/stable/instrumentation).
-5. Make the files in build
-    - `make`
-6. If you do not already have a seed directory, follow this process to create and populate one using the `dd` command.  If you do have such a directory, skip to step 7.
-    - `cd ..`  
-    - `mkdir seeds`  
-    - `for i in {0..4}; do dd if=/dev/urandom of=seed_$i bs=64 count=10; done`  
-    - `cd ..`  
-    - `cd build`
 
-You can read more about the `dd` command at this [Stack Exchange post](https://unix.stackexchange.com/questions/33629/how-can-i-populate-a-file-with-random-data).
+![mutation.png](mutation.png)
 
-7. Once you have a seed directory, enter the following command:
-    - `/AFLplusplus/afl-fuzz -i [full path to your seeds directory] -o out -m none -d -- [full path to the executable]`
+As we saw in Figure 1, we have multiple output types that we can use to better understand the code. They are found in afl-fuzz-stats.c, and are built in the afl-fuzz-bitmap.c. These outputs can also be viewed in the out folder :
 
-Congratulations, you are now running AFL++ on your target code! There should be a UI in terminal which shows you various statistics about the fuzzing process - look for the number of crashes detected.
+![out_folder.png](out_folder.png)
 
-## Analyzing the Crashes
+In AFL++, the **queue** stores **test cases** that have been found to be **interesting** based on code coverage feedback ( done in the save_if_interesting method in afl-fuzz-bitmap.c) ..Specifically, the queue holds:
 
-- Once there is at least 1 crash shown in the UI of AFL++, hit `Ctrl + C` to exit AFL++. You can find the inputs that caused the program to crash by traversing to the `out/default/crashes` directory.
-- You can use a bugger, such as `gdb` or `llvm`, to figure out what part of the input actually caused the program to crash. There are also other directories in `out/default` that show you some information gathered during the fuzzing process - feel free to explore them.
+1. Newly discovered inputs that trigger new execution paths in the target binary.
 
-## Challenge: Fuzzing Exercise 2
+2. Mutated test cases that resulted in novel coverage or execution behavior.
 
-Now that you have run AFL++ on Exercise 1, we would like you to try to run AFL++ on Exercise 2 without instruction from the module. If you get stuck, instructions on how to run AFL++ on Exercise 2 will be in the `exercise2-instructions` directory.
+3. Crashing test cases (if they cause a segmentation fault, buffer overflow, or other exceptions).
 
-# Phase 3: Analyzing Codebases for potential Vulnerabilities
+4. Hanging test cases (if execution time exceeds a defined timeout).
 
-## How to Use Sourcetrail
+5. The crashes can be found in the crashes folder, but pay attention to the information you find in the files, because the file contents may not fully represent the crash itself. For instance, if you want crashes to be strings of 1 character only, you may find in the crashes folder both a “c” and a “c” followed by an empty space. 
 
-- After the project is built, open Sourcetrail and click New Project. Name the project something relevant and in the "Sourcetrail
-Project Location" text box, click the three dots on the right and navigate to the directory where your project lives. After the path
-is listed in the text box, click "Add Source Group" at the bottom of the window.
-- In the new pop up, select the "CDB" option if it is a C or C++ project. A new window will pop up. Click the three dots in
-the "Compilation Database" textbox, and navigate to the "compile_commands.json" file within the build folder you created in the
-target. This will allow the files to be indexed in Sourcetrail.
-- On a Windows machine, this process is the same, but must be done within the virtual machine.
-- Once everything is indexed in Sourcetrail, open the project in another program for viewing code (like VS code, sublime, etc.) so you can see the files listed out and can navigate the file tree. This will allow you to glance over code and find things that might be interesting to investigate further using Sourcetrail (Sourcetrail has a search bar, so you can find any function or chunk of code
-very quickly).
-- The best way to find potential entry points in your targets is to look for files dealing with inputs from an outside source
-    - This could look like sensors, GPS systems, user inputs, communication modules, etc.
-    - We had success looking at "MAVLink"-related functions and files.
-- After finding a file that could be of interest, navigate to it in Sourcetrail by looking it up. You will see the functions in the file and the inputs to those functions. You can click through those things to learn more about them.
-- In general, its good practice to bookmark things in Soucetrail that look interesting so you can come back to them later.
 
+The **bitmap** is discussed in the following sections.
 
-# Phase 4: Fuzzing a Target with a Slice
 
-## How to Create a Slice
+## Multithreading
 
-When creating a [slice](https://github.com/alex-maleno/Fuzzing-Module#terms-used-throughout-the-module), you want to narrow down the code that will be running as much as possible. For example, if you were looking to fuzz a drone system, you may just want to fuzz the communication module or the gps module to see if there are flaws in the logic that the fuzzer you are using can detect. Each fuzzing project is different, based on the layout of the codebase and the build system that is used to compile the executable. Looking at the documentation for the codebase can be very helpful to learn how all the different modules interact with each other, which can then help you figure out where to start looking at the code in Sourcetrail.
+AFL++ supports multithreading to speed up fuzzing by running multiple instances in parallel. Each instance can explore different paths and mutations, increasing overall coverage and efficiency. The multithreading is implemented in the afl-fuzz.c file, where the main function creates multiple threads, each running an instance of the fuzzer.
+How to do it?
 
-For the slice, you can comment out some of the code in the target to ignore features that you are not interested in fuzzing. The essential pieces to run the code should be the only code left uncommented. For example, if there is a section that `sleeps` a certain period of time to wait for another module to be up and running, but you are not interested in that module of the target, then comment it out.
+a) All threads should target the same output file, e.g. “out”
+b) After the file name, run the -M or -S flag, depending on whether it is the main process or a secondary one.
+c) After -M (or -S), we need to add the name of the folder where the crashes will be saved for each run. The names should be different.
+d) Open multiple terminal sessions and run the modified command, eg:
+      1. /AFLplusplus/afl-fuzz -i /exercises/exercise1/seeds/ -o out -M fuzzer01 -m none -d -- /exercises/exercise1/build/simple_crash
+      2. /AFLplusplus/afl-fuzz -i /exercises/exercise1/seeds/ -o out -S fuzzer02 -m none -d -- /exercises/exercise1/build/simple_crash
+In the picture below, we show an example: how to do multithreading. For fuzzers 2 and 3, we use different seed files. Fuzzer 1 will contain all the crashes (it is used for synchronization), while fuzzers 2 and 3 will only contain the crash that they found.
+![multithreading.jpg](multithreading.jpg)
 
-The goal of making a slice is to streamline the running process of the program so AFL++ can more efficiently run it internally.
+## Using Static Analysis Tools
+Cppcheck (https://cppcheck.sourceforge.io/ ) is a static analysis tool used for detecting vulnerable functions in your program. It can detect bugs like memory leaks, out-of-bounds calls
 
-When using AFL++, something that needs to be included in the [wrapper](https://github.com/alex-maleno/Fuzzing-Module#terms-used-throughout-the-module) are the following lines:
 
-`#ifdef __AFL_HAVE_MANUAL_CONTROL`
+Example on how we used Cppcheck to get vulnerable functions and their “location”, and other functions in the vulnerable ones, that could trigger new crashes:
+problematic_files.py:
+```python
+import json
+import os
+import subprocess
 
-   `__AFL_INIT();`
 
-`#endif`
+current_directory = os.getcwd()
 
-These lines need to be included in your `main` before you read inputs from `STDIN`. They allow AFL++ to have control over the inputs by feeding its inputs through `STDIN`.
 
-### How to Create a Slice for Exercise 3
+c_cpp_files = []
 
-In the wrapper, you should include all files that are necessary for the module you are fuzzing to run. Excess files are unnecessary. For example, let's fuzz `exercise3` that we have created for this module...
 
-## Fuzzing Exercise 3
+for root, dirs, files in os.walk(current_directory):
+    for file in files:
+        if file.lower().endswith(('.c', '.cpp', '.h', '.hpp', '.cc', '.cxx', '.hh', '.hxx')):
+            file_path = os.path.join(root, file)
+            c_cpp_files.append(file_path)
 
-The first step in understanding a target is figuring out how all the functions interact. Let's look at this in Sourcetrail (if you haven't downloaded Sourcetrail, follow the instructions [here](https://github.com/alex-maleno/Fuzzing-Module#How-To-Download-Sourcetrail)).
 
-### Using Sourcetrail
+for file in c_cpp_files:
+    completed = subprocess.run([
+            "cppcheck",
+            "--enable=all",
+            "--inline-suppr",
+            "--suppress=missingInclude",
+            "--force",
+            '--template={file}:{line}',
+            file
+        ],
+        check=True,
+        capture_output=True
+    )
 
-1. In a terminal window, navigate to the `Fuzzing-Module/exercise3` directory.
-    - Note: this terminal window should not be one that is running a Docker container - we will be making a new container for this project. You can close any terminal windows with a Docker container currently running.
-2. Create a `build` directory
-    - `mkdir build`
-3. Go into that `build` directory
-    - `cd build`
-4. Type the following line into the command line:
-    - `cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..`
-    - This line uses CMake to create a JSON file that will tell Sourcetrail how the files interact with each other.
-5. Open up Sourcetrail. On the popup that opens with the app, click "New Project"
-6. Create a name for the project. It doesn't matter what the name of it is, but a good idea of a name would be the name of the code you are analyzing (e.g., "exercise3")
-7. Select the location this Sourcetrail project is going to "live". This will be the top directory of the code you are running, thus for our purposes it is `Fuzzing-Module/exercise3`. Select this folder wherever you cloned this directory to by clicking on the circle with the three dots in it on the right side of the "Sourcetrail Project Location" bar.
-8. Click the "Add Source Group" button at the bottom of the window.
-9. We want to add a source group for "C/C++ from Compilation Database" - click that option, and then "Next"
-10. In the "Compilation Database" entry box, click the circle with the three dots in it. This should open up the `exercise3` folder. The file we are looking for is `compile_commands.json` within the `build` folder. Select it, and then click "Open".
-11. Click "Create" at the bottom of the popup. This will close the current popup, and cause another popup to appear that is blue. The last step is to index all the files - click "Start"
 
-Once the indexing is done, you will be able to look at a graphical representation of the code! A good place to start is by looking at the files that exist in this project.
+    lines = completed.stderr.decode("utf-8")
 
-Use Sourcetrail to analyze the `Sys_Status` class. We have included a sample slice and wrapper for the specs class in the file `specs-slice.cpp`.
 
-## Solution: How to Fuzz Exercise 3
+    if lines == "":
+        continue
 
-With a basic understanding of how creating a slice works, we can re-review how to fuzz Exercise 3, which is slightly different than the other pieces of code that we worked with in this module. There are many different slices that can be created using the code in Exercise 3, so you have to tailor the commands to whatever slice you are using. Aside from this, the majority of the steps will be the same. We can walk through these steps more briefly (these should be done in your regular computer terminal):
-  1. Make sure that AFLplusplus and docker are running by opening up the docker application and clicking the start button next to the AFLplusplus docker container.
-  2. Run the following commands:
-    -  `docker ps`
-    - `docker commit [id of afl++ container]`
-  3. go to the /Fuzzing-Module/exercise3 directory and run the following command:
-    - `docker run –rm -it -v $(pwd):/exercise3 [hash from commit two steps before]`. If this syntax does not work, back to the section describing [how to create a target docker container](https://github.com/alex-maleno/Fuzzing-Module#how-to-create-target-docker-container) to refresh yourself on other syntax you may need to use.
-  4. Following this, you should be in the AFLplusplus terminal. Within this terminal, do the following:
-    - `make` the AFLplusplus executables if needed.
-    - Navigate to the code you added to the AFLplusplus container by doing `cd ..` and then `cd [added directory]`
-  5. Within this directory, create a `seeds` directory, `cd` into it and create at least 5 seeds, the same way that we did in step 6 of ["How to Run AFL++ on Exercise 1"](https://github.com/alex-maleno/Fuzzing-Module#how-to-run-afl-on-exercise-1).
-  6. Once you have your 5 seeds, `cd ..` out of the seeds directory and create the `build` directory. Go into this directory and run the following commands:
-    - `CC=/AFLplusplus/afl-clang-fast CXX=/AFLplusplus/afl-clang-fast++ cmake ..`
-    - `make`
-    - `/AFLplusplus/afl-fuzz -i ../seeds/ -o out -m none -d -- ./specs-slice`
-  7. At this point, AFLplusplus should be running and you should be seeing crashes happen. An important thing to notice is that the executable we are using is `./specs-slice`, which is a small section of our code (the slice). When writing your own slice, you should change this parameter to be the name of whatever file you created the slice in.
-  8. From running AFLplusplus, there should be ~4 unique crashes. From looking at the code, it is clear that this comes from the `choose_color()` function, which will crash if it takes in any non-numerical inputs. These are the kinds of this to look for in other areas of the program when creating another slice.
 
-  Based on what you have learned about creating a slice from these past sections, take a look at the other files in Exercise 3, and try to create another slice from other areas of the code which seem vulnerable using your new knowledge of fuzzing.
+    ctags_output = subprocess.run([
+            "ctags",
+            "--c-kinds=f",
+            "--fields={name}{line}{end}",
+            "--output-format=json",
+            "--sort=no",
+            file,
+        ],
+        check=True,
+        capture_output=True
+    ).stdout.decode("utf-8")
 
-## Conclusion
 
-Through this module, you have learned the basics of fuzzing. We walked through a basic introduction to fuzzing, and important software to download. We also discussed using AFL++ and Docker, and some example exercises to fuzz. One of the most important parts of this module is understanding the errors that you ran into while going through our tutorial. Although many potential errors are accounted for in our explanations, knowing where these exercises come from is half the battle of understanding how to fuzz because it will provide a foundation for fuzzing much more complex programs, such as flight controller software. If you want to spend more time learning about this, go back through the errors you ran into and things that were missed while walking through the practice exercises.
+    functions = []
+    for c in ctags_output.splitlines():
+        info = json.loads(c)
+        functions.append({
+            "name": info["name"],
+            "start_line": int(info["line"]),
+            "end_line": int(info["end"])
+        })
 
-Fuzzing is used consistently in industries like aviation, finance, healthcare, energy, automotive, and more, as security regulations increase across all industries. If you want to learn more about the practical applications of fuzzing in industry, check out these articles:
 
-- [Making fuzzing smarter](https://cybersecurity.springeropen.com/articles/10.1186/s42400-018-0002-y): This paper discusses fuzzing and how it can be made more efficient, smarter, and more state-of-the-art.
-- [Ethereum Network Vulnerability](https://autobahn.security/post/fuzzing-blockchain-2): how advanced fuzz testing discovered a serious DOS vulnerability in the Ethereum network.
-- [Different types of fuzzing](https://patricegodefroid.github.io/public_psfiles/Fuzzing-101-CACM2020.pdf): This article discussed a few different types of fuzzing - blackbox, whitebox, and grammar-based - and the effectiveness of each.
-- In general...[a list of bugs you can find by fuzzing](https://www.code-intelligence.com/blog/what-bugs-can-you-find-with-fuzzing)
+    printed_functions = set()
+    stack = []
+
+
+    function_code_map = {}
+    for function in functions:
+        func_name = function["name"]
+        start_line = function["start_line"]
+        end_line = function["end_line"]
+
+
+        function_code = subprocess.run([
+                "sed", "-n", f"{start_line},{end_line}p", file
+            ],
+            check=True,
+            capture_output=True
+        ).stdout.decode("utf-8")
+
+
+        # Store the function code in the map with a (file, function_name) key
+        function_code_map[(file, func_name)] = function_code
+
+
+    for function in functions:
+        func_name = function["name"]
+        start_line = function["start_line"]
+        end_line = function["end_line"]
+
+
+        for l in lines.splitlines():
+            split = l.split(':')
+            problematic_file = split[0]
+            issue_line = int(split[1])
+
+
+            if problematic_file == file and start_line <= issue_line <= end_line:
+                if func_name not in printed_functions:
+                    print(f"fun: {func_name}")
+                    printed_functions.add(func_name)
+                    stack.append(function)
+                break
+
+
+    while stack:
+        current_function = stack.pop()
+        current_func_name = current_function["name"]
+
+
+        for function in functions:
+            func_name = function["name"]
+            if func_name in printed_functions:
+                continue
+
+
+            function_code = function_code_map[(file, func_name)]
+            if current_func_name in function_code:
+                print(f"fun: {func_name}")
+                printed_functions.add(func_name)
+                stack.append(function)
+```
+
+
+Retrieving these functions could be used to run AFL with the ALLOWLIST flag, but we were not able to configure it so that all of the other functions were not tracked in the fuzzing. This is an example on how to run AFL with the ALLOWLIST flag ( from the AVR 2024 -> add reference competition), if the code is instrumented in LLVM:
+
+```bash
+#!/usr/bin/sh
+echo "Running v0.1.6.2"
+echo "Starting run.sh!"
+
+echo "AFL_LLVM_DICT2FILE is $AFL_LLVM_DICT2FILE"
+
+AFL_DIR=$(pwd)/src
+
+# Compile challenge program
+# You may need to modify this if you need instrumentation etc.
+# It is also possible to use the precompiled version which should be in the challenge/bin folder
+cd challenge || exit
+
+
+# Grab executable name
+executable_name=$(ls bin)
+echo "executable found:" ${executable_name}
+
+
+# Install dependencies if necessary
+if [ -f "src/install_dependencies.sh" ]; then
+  echo "Installing dependencies"
+  cd src || exit
+  ./install_dependencies.sh
+  cd .. || exit
+fi
+
+echo "Running Cppcheck..."
+allowlist="$(pwd)/allowlist.txt"
+cd src || exit
+python3 "$AFL_DIR"/problematic-files-lookup.py > "$allowlist" /
+cd ..
+echo "Cppcheck done!"
+
+echo "Cppcheck found issues in the following functions"
+cat "$allowlist"
+
+# add the file with problematic functions to AFL_LLVM_ALLOWLIST (environment variable)
+echo "Compiling with AFL++ instrumentation..."
+if [ -n "$allowlist" ]; then
+    export AFL_LLVM_ALLOWLIST="$allowlist"
+fi
+
+
+# Build
+# compile.sh script allows for workarounds
+# if it does not exist, just do the standard cmake ../src && make
+mkdir build && cd build || exit
+if [ -f "../src/compile.sh" ]; then
+  ../src/compile.sh
+else
+  cmake -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" ../src && make || exit
+fi
+
+# mkdir build && cd build || exit
+# cmake ../src && make || exit
+
+cd ../..
+
+# Prepare AFL
+mkdir -p run/input || exit
+mkdir -p run/output || exit
+# If a corpus is provided, copy it to the input dir
+# If not, just create an empty file so afl doesn't complain
+if [ -d challenge/src/corpus ]; then
+  cp challenge/src/corpus/* run/input
+
+
+
+
+"$AFL_DIR"/afl-fuzz  -i input -o output -m none -d -I '../submit "$__AFL_OUT_DIR"/.cur_input' -T -- ../challenge/build/"$executable_name" 
+
+for crash in output/default/crashes/id:*
+do
+  ../submit "$crash"
+done
+
+echo "run.sh done!"
+
+
+```
+
+## Flags (to make your life a little easier)
+Bu default, running afl++ with no special flags ( e.g. /AFLplusplus/afl-fuzz -i seeds/ -o out -m none -d build/simple_crash) , on a code like this:
+```c++
+#include <iostream>
+       
+using namespace std;
+
+int main() {
+
+  string str;
+
+  cout << "enter input string: ";
+  getline(cin, str);
+
+   if(str.compare("12345") ==0 ) {
+       abort();
+   }
+   return 0;
+}
+```
+will not yield the crash not even 20 minutes.
+![string_bad.png](string_bad.png)
+The helpful flag that comes in handy in this case is “-x”, which will give the crash in less of a milisecond. Updated call:  /AFLplusplus/afl-fuzz-x  -i seeds/ -o out -m none -d build/simple_crash.
+
+All flags can be found in the documentation, [env_variables.md](AFLplusplus%2Fdocs%2Fenv_variables.md).
+
+**!!! It would be helpful to actually read this documentation, as we don't want to repeat past mistakes and implement the string-extraction (like we did in the first place:)**
+
+## How does the BitMap work
+In AFL++, the bitmap  is the central data structure used to track which parts of the program were executed during fuzzing. It's crucial for how AFL++ determines whether a mutated input is interesting enough to keep and fuzz further.
+A nice ChatGpt explanation of the bitmap:
+
+🎯 Why is the bitmap important?
+1. Tracks Code Coverage
+The bitmap helps AFL++ know which execution paths an input has triggered. This is how AFL++ decides:
+"This input reaches new code → keep it!"
+
+
+"This input doesn't explore new paths → discard it."
+
+
+2. Guides Mutation Strategy
+Inputs that trigger new bitmap entries (i.e. new coverage) are deemed "interesting", saved to the queue, and used to generate further mutations.
+3. Enables Unique Path ID
+Each bitmap state can be hashed to generate a unique path ID representing the execution. This is used for deduplication and crash triage.
+
+
+How does the bitmap work (currently I think this is how it works, I am not 100% sure, but it seems logical and matches what we found on the internet):
+1. Each block of code has a unique index assigned
+
+2. Each edge gets a index computed by xoring the index of the source block and the destination block; so edgeIndex = (sourceid ⊕ destinationid) % mapsize. After this, for the upcoming block, the sourceid is computed by sourceid = destinationid >> 1 (of the current block). The shifting is relevant for avoiding collision, by making the XOR less influenced by the higher-order bits.
+
+3. Each edgeindex corresponds do a bitmap entry, so everytime a new edge is triggered, something like this is done: bitmap.atPosition(edgeindex)++
+
+4. *optional: there might be collisions, but they are very rare. AFL seems to be aware of collisions, but they seem to be acceptable.
+
+### The Bitmap in the code
+( this code is already added in the documents decribed below, but it is commented, it is supposed to be used for debugging purposes)
+
+In afl-fuzz-one line 2200:
+Printing the Hexadecimal Representation of the bitmap for a current mutation:
+```c
+
+ printf("Bitmap contents for mutation:%s\n", out_buf);
+  for (size_t i = 0; i < afl->fsrv.map_size; i++) {
+    printf("%02x ", afl->virgin_bits[i]);
+    if ((i + 1) % 16 == 0) { printf("\n"); }
+  }
+```
+
+In afl-showmap.c: in line 161 we have the **update_bitmap_score** function
+in afl-fuzz-bitmap.c:
+
+- line 799 “keep as crash”   -> this one is the one that outputs only the saved crashes
+- Save_if_interesting
+- line 915 ck_write -> this writes other inputs as well
+In afl-fuzz-bitmap, by adding these we can see the current mutation that crashes that was being added to the total number of crashes ( that can be greater than the total number of saved crashes)
+```c
+++afl->total_crashes; //already here
+   printf("mutation that crashes is:%s\n", mem);
+   printf("bitmap is");
+   for (size_t i = 0; i < afl->fsrv.map_size; i++) {
+       printf("%02x ", afl->virgin_bits[i]);
+       if ((i + 1) % 16 == 0) { printf("\n"); }
+   }
+```
+
+
+## Control flow graph and Node Ids; Binary Instrumentation
+According to https://learnfrida.info/about_bininst/#:~:text=Binary%20instrumentation%20consists%20on%20injecting,behavioral%20information%20during%20its%20execution  “Binary instrumentation consists of injecting instrumentation code which is transparent to the target application so that we can obtain behavioral information during its execution.”
+
+In AFL++ instrumentation is used to:
+
+- track code coverage
+- record nodes and edge IDs ( by injecting the ids after each of them in the binary).
+
+- We did compile time instrumentation, using LLVM, which can be done by executing step 5.f in “How to use AFL++” (CC=/AFLplusplus/afl-clang-fast CXX=/AFLplusplus/afl-clang-fast++ cmake ..)
+
+For the following paragraph, the code on which we ran the instrumentation is this, with possible variations ( however, the idea is the same):
+! The AFL_COVERAGE methods below were used to try to enable coverage from those point onwards (https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/README.instrument_list.md) but we didn't manage to do much with them.
+
+```c++
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+__AFL_COVERAGE();
+// __AFL_COVERAGE_START_OFF();
+
+using namespace std;
+
+void myCustomFunction1(string str)
+{
+    if(str.length() > 1 && str.length() < 5)
+        abort();
+}
+
+
+void myCustomFunction2(string str)
+{
+    if(str.length() > 10 && str.length() < 15)
+        abort();
+}
+
+
+void myCustomFunction3(string str)
+{
+    if(str.length() > 20 && str.length() < 40)
+        abort();
+}
+
+void myCustomFunction4(string str)
+{
+    if(str.length() > 60 && str.length() < 100)
+        abort();
+}
+
+int main() {
+
+    string str;
+    // __AFL_COVERAGE_OFF();
+    getline(cin, str);
+
+    // __AFL_COVERAGE_OFF();
+    myCustomFunction1(str);
+    // __AFL_COVERAGE_ON();
+
+    // __AFL_COVERAGE_OFF();
+    // __AFL_COVERAGE_ON();
+    // __AFL_COVERAGE_SKIP();
+    myCustomFunction2(str);
+    // __AFL_COVERAGE_ON();
+    // __AFL_COVERAGE_OFF();
+
+    // __AFL_COVERAGE_OFF();
+    myCustomFunction3(str);
+    // __AFL_COVERAGE_ON();
+
+    // __AFL_COVERAGE_ON();
+    // __AFL_COVERAGE_OFF();
+    myCustomFunction4(str);
+    // __AFL_COVERAGE_ON();
+    return 0;
+}
+```
+After analyzing the [SanitizerCoveragePCGUARD.so.cc](AFLplusplus%2Finstrumentation%2FSanitizerCoveragePCGUARD.so.cc) file, it seems like the instrumentation takes place here, especially on lines 449-450:
+
+```c 
+for (auto &F : M)
+    instrumentFunction(F, DTCallback, PDTCallback);
+
+```
+After checking the next line, we found this (on lines 468-490):
+
+```c 
+if (!be_quiet) {
+
+    if (!instr) {
+
+      WARNF("No instrumentation targets found.");
+
+    } else {
+
+      char modeline[128];
+      snprintf(modeline, sizeof(modeline), "%s%s%s%s%s%s",
+               getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
+               getenv("AFL_USE_ASAN") ? ", ASAN" : "",
+               getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+               getenv("AFL_USE_TSAN") ? ", TSAN" : "",
+               getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
+               getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
+      OKF("Instrumented %u locations with no collisions (%s mode) of which are "
+          "%u handled and %u unhandled selects.",
+          instr, modeline, selects, unhandled);
+    }
+  }
+
+```
+
+This part is printed every time we compile the binary, so it was worth taking a closer look. After adding these lines ( which are commented out in our code):
+
+```c
+printf("printing something\n");
+for (auto &F: M)
+    printf("SanitizerCoveragePCGUARD: instrumenting %s in %s\n",
+     F.getName().str().c_str(), F.getParent()->getName().str().c_str());
+```
+In the block above (so we have this now):
+```c
+char modeline[128];
+      snprintf(modeline, sizeof(modeline), "%s%s%s%s%s%s",
+               getenv("AFL_HARDEN") ? "hardened" : "non-hardened",
+               getenv("AFL_USE_ASAN") ? ", ASAN" : "",
+               getenv("AFL_USE_MSAN") ? ", MSAN" : "",
+               getenv("AFL_USE_TSAN") ? ", TSAN" : "",
+               getenv("AFL_USE_CFISAN") ? ", CFISAN" : "",
+               getenv("AFL_USE_UBSAN") ? ", UBSAN" : "");
+      printf("printing something\n");
+      for (auto &F: M)
+          printf("SanitizerCoveragePCGUARD: instrumenting %s in %s\n",
+            F.getName().str().c_str(), F.getParent()->getName().str().c_str());
+      OKF("Instrumented %u locations with no collisions (%s mode) of which are "
+          "%u handled and %u unhandled selects. test",
+          instr, modeline, selects, unhandled);
+```
+The output looks something like this:
+```plaintext
+SanitizerCoveragePCGUARD: instrumenting _ZNSt8ios_base4InitC1Ev in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _ZNSt8ios_base4InitD1Ev in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting __cxa_atexit in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _Z17myCustomFunction1NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting llvm.dbg.declare in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting abort in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _Z17myCustomFunction2NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _Z17myCustomFunction3NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _Z17myCustomFunction4NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting main in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting llvm.lifetime.start.p0 in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting __gxx_personality_v0 in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting llvm.lifetime.end.p0 in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _ZdlPv in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE9_M_createERmm in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting llvm.memcpy.p0.p0.i64 in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_stringIS4_S5_T1_EES4_ in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _ZSt16__throw_bad_castv in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _ZNKSt5ctypeIcE13_M_widen_initEv in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting _GLOBAL__sub_I_simple_crash.cpp in /exercises/exercise1/simple_crash.cpp
+SanitizerCoveragePCGUARD: instrumenting __sanitizer_cov_trace_cmp1 in /exercises/exercise1/simple_crash.cpp
+
+```
+ So we found a way to print all the functions that are instrumented. Now we need to take a closer look at the methods that we can call on F, we might get something interesting.
+
+It seems like the function on line 1193
+(
+void ModuleSanitizerCoverageAFL::InjectCoverageAtBlock(Function   &F,
+                                                       BasicBlock &BB,
+                                                       size_t      Idx,
+                                                       bool        IsLeafFunc)) 
+is responsible for the instrumentation. The function starts with this:
+
+
+BasicBlock::iterator IP = BB.getFirstInsertionPt();
+  bool                 IsEntryBB = &BB == &F.getEntryBlock();
+  DebugLoc             EntryLoc;
+
+```c
+  if (IsEntryBB) {
+
+    if (auto SP = F.getSubprogram())
+      EntryLoc = DILocation::get(SP->getContext(), SP->getScopeLine(), 0, SP);
+    // Keep static allocas and llvm.localescape calls in the entry block.  Even
+    // if we aren't splitting the block, it's nice for allocas to be before
+    // calls.
+    IP = PrepareToSplitEntryBlock(BB, IP);
+
+```
+By inserting this 
+`printf("AFL++ Instrumented Block: Function: %s, Block ID: %zu\n", F.getName().str().c_str(), Idx); 
+`
+
+print statement after the BasicBlock iterator and building the executable again, we get something like  this:
+
+```plaintext
+AFL++ Instrumented Block: Function: _Z17myCustomFunction1NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 0
+AFL++ Instrumented Block: Function: _Z17myCustomFunction1NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 1
+AFL++ Instrumented Block: Function: _Z17myCustomFunction1NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 2
+AFL++ Instrumented Block: Function: _Z17myCustomFunction2NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 0
+AFL++ Instrumented Block: Function: _Z17myCustomFunction2NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 1
+AFL++ Instrumented Block: Function: _Z17myCustomFunction2NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 2
+AFL++ Instrumented Block: Function: _Z17myCustomFunction3NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 0
+AFL++ Instrumented Block: Function: _Z17myCustomFunction3NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 1
+AFL++ Instrumented Block: Function: _Z17myCustomFunction3NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 2
+AFL++ Instrumented Block: Function: _Z17myCustomFunction4NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 0
+AFL++ Instrumented Block: Function: _Z17myCustomFunction4NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 1
+AFL++ Instrumented Block: Function: _Z17myCustomFunction4NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE, Block ID: 2
+AFL++ Instrumented Block: Function: main, Block ID: 0
+AFL++ Instrumented Block: Function: main, Block ID: 1
+AFL++ Instrumented Block: Function: main, Block ID: 2
+AFL++ Instrumented Block: Function: main, Block ID: 3
+AFL++ Instrumented Block: Function: main, Block ID: 4
+AFL++ Instrumented Block: Function: main, Block ID: 5
+```
+
+
+We further have this code:
+
+``` c 
+Value *GuardPtr = IRB.CreateIntToPtr(
+        IRB.CreateAdd(IRB.CreatePointerCast(FunctionGuardArray, IntptrTy),
+                      ConstantInt::get(IntptrTy, Idx * 4)),
+        Int32PtrTy);
+
+    LoadInst *CurLoc = IRB.CreateLoad(IRB.getInt32Ty(), GuardPtr);`
+```
+On lines 1240-1245, where we think the ID of the block is created (and inserted later, but we don’t really care about this). By adding this line:
+``` c
+printf("AFL++ Instrumented Block: Function: %s\nBlock ID: %zu\nAFL Block ID: %d\nAFL Block ID in hex: %x\n\n\n",
+          F.getName().str().c_str(), Idx, CurLoc, CurLoc);
+```
+
+
+And building the executable again, we get something like this:
+```plaintext
+AFL++ Instrumented Block: Function: _Z17myCustomFunction1NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 0
+AFL Block ID: -160569152
+AFL Block ID in hex: f66de8c0
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction1NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 1
+AFL Block ID: -174574896
+AFL Block ID in hex: f59832d0
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction1NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 2
+AFL Block ID: -160250192
+AFL Block ID in hex: f672c6b0
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction2NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 0
+AFL Block ID: -170795072
+AFL Block ID in hex: f5d1dfc0
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction2NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 1
+AFL Block ID: -160571456
+AFL Block ID in hex: f66ddfc0
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction2NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 2
+AFL Block ID: -165531488
+AFL Block ID in hex: f62230a0
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction3NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 0
+AFL Block ID: -176135200
+AFL Block ID in hex: f58063e0
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction3NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 1
+AFL Block ID: -169158768
+AFL Block ID in hex: f5ead790
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction3NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 2
+AFL Block ID: -167955680
+AFL Block ID in hex: f5fd3320
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction4NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 0
+AFL Block ID: -167979504
+AFL Block ID in hex: f5fcd610
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction4NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 1
+AFL Block ID: -169921440
+AFL Block ID in hex: f5df3460
+
+
+AFL++ Instrumented Block: Function: _Z17myCustomFunction4NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+Block ID: 2
+AFL Block ID: -167980400
+AFL Block ID in hex: f5fcd290
+
+
+AFL++ Instrumented Block: Function: main
+Block ID: 0
+AFL Block ID: -162499856
+AFL Block ID in hex: f65072f0
+
+
+AFL++ Instrumented Block: Function: main
+Block ID: 1
+AFL Block ID: -176064608
+AFL Block ID in hex: f58177a0
+
+
+AFL++ Instrumented Block: Function: main
+Block ID: 2
+AFL Block ID: -164862704
+AFL Block ID in hex: f62c6510
+
+
+AFL++ Instrumented Block: Function: main
+Block ID: 3
+AFL Block ID: -163340032
+AFL Block ID in hex: f643a100
+
+
+// The last block ID in the main function that was printed was 45 
+
+
+
+```
+
+
+
+
+The code written before was just printing the results to the console. However, by adding this fragment, the IDs are printed in the binary:
+```c
+// Declare printf function
+FunctionCallee PrintfFunc = F.getParent()->getOrInsertFunction(
+    "printf", FunctionType::get(IRB.getInt32Ty(), PointerType::getInt8Ty(F.getContext()), true));
+
+// Create a global format string for printing
+Value *PrintfFormatStrInt = IRB.CreateGlobalStringPtr("Block ID int: %d\n");
+Value *PrintfFormatStrHex = IRB.CreateGlobalStringPtr("Block ID hex: %x\n");
+
+// Convert CurLoc to 64-bit integer type for printf (for int)
+Value *CurLocInt = IRB.CreateSExt(CurLoc, IRB.getInt64Ty());
+
+// Insert printf
+IRB.CreateCall(PrintfFunc, {PrintfFormatStrInt, CurLocInt});
+IRB.CreateCall(PrintfFunc, {PrintfFormatStrHex, CurLoc});
+
+```
+On line 1256.
+When we run the executable normally, we get the block IDs printed (or some version of it). We need to work on how to correlate them with the id’s in the binary. Also, we need to understand how some parts of the code in SanitizerCoverage are translated into the binary (how to map each IRB to an Assembly line). For this, we need to compare a compiled binary with g++ (so no LLVM instrumentation), the compiled binary with default AFL (so normal instrumentation) and the compiled binary with the added printfs above.
+
+```c
+Value *PrintfFormatStrFunctionName = IRB.CreateGlobalStringPtr("SanitizerCoveragePCGUARD: instrumenting %s in %s\n");
+      Value *FunctionNameString = IRB.CreateGlobalStringPtr(F.getName().str().c_str());
+          Value *FunctionNameParentString = IRB.CreateGlobalStringPtr(F.getParent()->getName().str().c_str());
+      IRB.CreateCall(PrintfFunc, {PrintfFormatStrFunctionName, FunctionNameString, FunctionNameparentString});
+```
+
+Use the code above to print the function name.
+
+
+## So... What did we do?
+We explored the AFL++ codebase, focusing on how it implements fuzzing strategies, mutates inputs, and tracks code coverage using bitmaps. We also examined the multithreading capabilities of AFL++, static analysis tools like Cppcheck, and the binary instrumentation process that allows AFL++ to gather execution data.
+We tried coming up with different ways to improve AFL++'s targetted fuzzing capabilities (as for now, it doesn't support targeted fuzzing). From what we explained in this tutorial, we believe we are relatively close this targeted fuzzing strategy, but the question is **What to do next?** .
+
+## What to do next?
+We suggest the following steps:
+1. **Path Analysis**: Analyze the paths taken by AFL++ during fuzzing. This can be done by correlating the bitmap entries with the block IDs printed in the binary.
+2. **Input Seed Correlation**: Write a separate process to correlate inputs with the paths they trigger in the target binary. This will help identify which inputs lead to specific execution paths.
+3.**Use bitmap to guide the process** : Restart fuzzer with the bitmap and the inputs that lead to the paths of interest. This will allow AFL++ to focus on specific areas of the code that are more likely to yield interesting results.
+
+
+
+
+
+
+
+
