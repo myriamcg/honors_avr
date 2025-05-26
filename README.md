@@ -5,7 +5,7 @@
 
 [Google Doc Version of Report](https://docs.google.com/document/d/1G8DFGDWeCFvvJaVB0-TxvMYBuCKBEcHEqYRPOG5iAzY/edit?usp=sharing)
 
-
+[GitHub Repository](https://github.com/myriamcg/honors_avr)
 ## Abstract
 This report presents a tutorial on fuzzing and AFL++ and our two-year honors research on improving its effectiveness. In the first year, we identified AFL++’s struggles with string-based inputs and used Cppcheck to detect vulnerable functions, exploring control flow analysis to guide fuzzing. In the second year, we focused on runtime analysis, implementing dynamic control flow graph (CFG) construction, and examining AFL++’s bitmap mechanism. By modifying LLVM-instrumented binaries to log block node IDs, we gained insights into coverage tracking. Our findings set up the grounds for enhancing fuzzing precision and execution flow analysis, addressing key AFL++ limitations.
 
